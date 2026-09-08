@@ -221,6 +221,7 @@ declare global {
       localActivity: () => Promise<DesktopLocalActivity>
       updateLocalThread: (input: {
         threadId: string
+        title?: string
         viewed?: boolean
         archived?: boolean
         modelId?: string
