@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
-import httpx
+import httpx2
 from langgraph_sdk.client import LangGraphClient
 from langgraph_sdk.errors import ConflictError
 
@@ -414,7 +414,7 @@ async def _post_slack_message_with_ts(
     if blocks:
         payload["blocks"] = blocks
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.post(
                 f"{SLACK_API_BASE_URL}/chat.postMessage",
@@ -440,7 +440,7 @@ async def _post_slack_message_with_ts(
                 _log_automated_warning_sent_to_slack(channel_id, thread_ts, text)
                 return message_ts, None
             return None, None
-        except httpx.HTTPError as exc:
+        except httpx2.HTTPError as exc:
             logger.exception("Slack chat.postMessage request failed")
             return None, f"http_error: {type(exc).__name__}"
 
@@ -702,7 +702,7 @@ class SlackStreamError(Exception):
 async def _slack_stream_call(method: str, payload: dict[str, Any]) -> dict[str, Any]:
     if not SLACK_BOT_TOKEN:
         raise SlackStreamError("missing_slack_bot_token")
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.post(
                 f"{SLACK_API_BASE_URL}/{method}", headers=_slack_headers(), json=payload
@@ -718,7 +718,7 @@ async def _slack_stream_call(method: str, payload: dict[str, Any]) -> dict[str, 
             data = response.json()
         except SlackStreamError:
             raise
-        except (httpx.HTTPError, ValueError) as exc:
+        except (httpx2.HTTPError, ValueError) as exc:
             logger.exception("Slack %s request failed", method)
             raise SlackStreamError(f"http_error:{type(exc).__name__}") from exc
         if not isinstance(data, dict):
@@ -812,7 +812,7 @@ async def update_slack_message(
     if blocks is not None:
         payload["blocks"] = blocks
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.post(
                 f"{SLACK_API_BASE_URL}/chat.update",
@@ -834,7 +834,7 @@ async def update_slack_message(
                     return False, "rate_limited"
                 return False, error
             return True, None
-        except httpx.HTTPError as exc:
+        except httpx2.HTTPError as exc:
             logger.exception("Slack chat.update request failed")
             return False, f"http_error: {type(exc).__name__}"
 
@@ -857,7 +857,7 @@ async def upload_slack_thread_file(
         return None, "file_too_large"
 
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+        async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
             ticket_response = await http_client.post(
                 f"{SLACK_API_BASE_URL}/files.getUploadURLExternal",
                 headers=_slack_auth_headers(),
@@ -902,7 +902,7 @@ async def upload_slack_thread_file(
             if complete_error:
                 return None, complete_error
             return file_id, None
-    except httpx.HTTPError as exc:
+    except httpx2.HTTPError as exc:
         logger.exception("Slack file upload failed")
         return None, f"http_error: {type(exc).__name__}"
     except TypeError, ValueError:
@@ -923,7 +923,7 @@ def _validate_slack_upload_url(url: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _slack_response_error(response: httpx.Response) -> str | None:
+def _slack_response_error(response: httpx2.Response) -> str | None:
     if response.status_code == 429:
         retry_after = response.headers.get("Retry-After")
         return f"rate_limited: {retry_after}" if retry_after else "rate_limited"
@@ -971,7 +971,7 @@ async def post_slack_ephemeral_message(
     if thread_ts:
         payload["thread_ts"] = thread_ts
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.post(
                 f"{SLACK_API_BASE_URL}/chat.postEphemeral",
@@ -984,7 +984,7 @@ async def post_slack_ephemeral_message(
                 logger.warning("Slack chat.postEphemeral failed: %s", data.get("error"))
                 return False
             return True
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception("Slack chat.postEphemeral request failed")
             return False
 
@@ -1000,7 +1000,7 @@ async def add_slack_reaction(channel_id: str, message_ts: str, emoji: str = "eye
         "name": emoji,
     }
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.post(
                 f"{SLACK_API_BASE_URL}/reactions.add",
@@ -1015,7 +1015,7 @@ async def add_slack_reaction(channel_id: str, message_ts: str, emoji: str = "eye
                 return True
             logger.warning("Slack reactions.add failed: %s", data.get("error"))
             return False
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception("Slack reactions.add request failed")
             return False
 
@@ -1025,7 +1025,7 @@ async def get_slack_user_info(user_id: str) -> dict[str, Any] | None:
     if not SLACK_BOT_TOKEN:
         return None
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.get(
                 f"{SLACK_API_BASE_URL}/users.info",
@@ -1040,7 +1040,7 @@ async def get_slack_user_info(user_id: str) -> dict[str, Any] | None:
             user = data.get("user")
             if isinstance(user, dict):
                 return user
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception("Slack users.info request failed")
     return None
 
@@ -1078,7 +1078,7 @@ async def get_slack_channel_info(
     if use_cache and (cached := _cached_slack_channel_info(channel_id)) is not None:
         return cached
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.get(
                 f"{SLACK_API_BASE_URL}/conversations.info",
@@ -1100,7 +1100,7 @@ async def get_slack_channel_info(
             if isinstance(channel, dict):
                 _cache_slack_channel_info(channel_id, channel)
                 return dict(channel)
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception("Slack conversations.info request failed")
     return None
 
@@ -1256,7 +1256,7 @@ async def fetch_slack_thread_messages(channel_id: str, thread_ts: str) -> list[d
     cursor: str | None = None
     truncated = False
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         while True:
             params: dict[str, str | int] = {"channel": channel_id, "limit": 200}
             if not session_channel:
@@ -1272,7 +1272,7 @@ async def fetch_slack_thread_messages(channel_id: str, thread_ts: str) -> list[d
                 )
                 response.raise_for_status()
                 payload = response.json()
-            except httpx.HTTPError:
+            except httpx2.HTTPError:
                 logger.exception("Slack %s request failed", method)
                 break
 
@@ -1368,7 +1368,7 @@ async def fetch_slack_thread_message_by_ts(
     if not session_channel:
         params["ts"] = thread_ts
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.get(
                 f"{SLACK_API_BASE_URL}/{method}",
@@ -1377,7 +1377,7 @@ async def fetch_slack_thread_message_by_ts(
             )
             response.raise_for_status()
             payload = response.json()
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception(
                 "Slack %s request failed for channel=%s thread=%s ts=%s",
                 method,
@@ -1447,7 +1447,7 @@ async def fetch_slack_message_by_ts(channel_id: str, message_ts: str) -> dict[st
     if not SLACK_BOT_TOKEN:
         return None
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.get(
                 f"{SLACK_API_BASE_URL}/conversations.history",
@@ -1473,7 +1473,7 @@ async def fetch_slack_message_by_ts(channel_id: str, message_ts: str) -> dict[st
             messages = data.get("messages", [])
             if messages and isinstance(messages[0], dict):
                 return messages[0]
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception(
                 "Slack conversations.history request failed for channel=%s ts=%s",
                 channel_id,
@@ -1492,7 +1492,7 @@ async def get_slack_permalink(channel_id: str, message_ts: str) -> str | None:
     if is_code_channel_session(message_ts):
         return None
 
-    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
+    async with httpx2.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT) as http_client:
         try:
             response = await http_client.get(
                 f"{SLACK_API_BASE_URL}/chat.getPermalink",
@@ -1511,7 +1511,7 @@ async def get_slack_permalink(channel_id: str, message_ts: str) -> str | None:
                 return None
             permalink = data.get("permalink")
             return permalink if isinstance(permalink, str) and permalink else None
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             logger.exception(
                 "Slack chat.getPermalink request failed for channel=%s ts=%s",
                 channel_id,
